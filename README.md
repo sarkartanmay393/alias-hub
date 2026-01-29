@@ -22,7 +22,7 @@ Most alias tools are just "dotfile managers" or heavy frameworks like Oh-My-Zsh.
 
 ### 🍺 Homebrew (macOS/Linux)
 ```bash
-brew install sarkartanmay393/alias-hub/ah
+brew install https://raw.githubusercontent.com/sarkartanmay393/alias-hub/main/Formula/ah.rb
 ```
 
 ### 🚀 Automatic Install (Linux/Mac)
