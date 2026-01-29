@@ -83,7 +83,8 @@ func Start(newPkgName string) error {
 	fmt.Printf("⚠️  Conflict Resolution UI started at %s\n", url)
 	openBrowser(url)
 
-	return http.ListenAndServe(":"+port, nil)
+	// Security: Only bind to localhost to prevent network access
+	return http.ListenAndServe("127.0.0.1:"+port, nil)
 }
 
 func handleConflicts(w http.ResponseWriter, r *http.Request) {
