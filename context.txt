@@ -1,0 +1,60 @@
+# Alias Hub (ah) - Project Context & Technical Overview
+
+## 1. Project Overview
+**Name:** Alias Hub (ah)
+**Tagline:** The Ultimate Shell Alias Manager.
+**Goal:** mitigate the chaos of managing shell aliases across multiple machines, teams, and dotfiles. usage similar to `npm` or `brew` but for shell aliases.
+
+## 2. Key Features
+*   **Package Management:** `install`, `remove`, `enable`, `disable` alias packages.
+*   **Public Registry:** Centralized GitHub-based registry (`sarkartanmay393/ah`) for sharing packages.
+*   **Conflict Detection:** Automatically detects if a new alias clobbers an existing one.
+*   **Conflict Resolution Web UI:** A local web interface (`ah resolve`) to visually diff and choose between conflicting aliases.
+*   **Live Updates:** Changes are reflected in the shell immediately (via `ah init` hook).
+*   **Universal Support:** Works on macOS/Linux, supports Zsh and Bash.
+*   **Atomic Operations:** File locking (`syscall.Flock`) ensures no corrupt writes during concurrency.
+
+## 3. Technical Architecture
+
+### 3.1. Language & Stack
+*   **Core:** Go (Golang) 1.23+
+*   **CLI Framework:** Cobra
+*   **Frontend (Conflict UI):** HTML/CSS/JS (Vanilla), embedded into binary via `go:embed`.
+*   **Storage:** Local filesystem (`~/.ah`) + Git (Registry).
+
+### 3.2. Data Structure (`~/.ah`)
+*   `active/`: Symlinks to enabled packages.
+*   `registry/`: git-cloned copy of the public registry.
+*   `bin/`: (Future use) for binary shims.
+*   `env.sh`: Auto-generated script sourced by `.zshrc`/`.bashrc`. Defines the hook and sources the compiled alias dump.
+*   `aliases.compiled.sh`: A single file containing ALL active aliases, regenerated on every change for performance.
+*   `state`: A touch-file. When timestamp changes, shell hook triggers a re-source.
+
+### 3.3. Core Components
+*   **Manager (`pkg/manager`):** Orchestrates installation, locking, and registry interactions.
+    *   `EnablePackage`: Symlinks package -> `active/`, recompiles, updates state.
+    *   `CompileAliases`: Aggregates all active `alias.sh` files into `aliases.compiled.sh`.
+*   **Parser (`pkg/parser`):** Custom parser to extract `alias name='command'` from shell files to support conflict detection.
+*   **Server (`pkg/server`):** Runs a local HTTP server (localhost:9999) for the Conflict UI.
+    *   API: `/api/conflicts`, `/api/resolve`.
+    *   Security: Binds strictly to `127.0.0.1`.
+
+### 3.4. Package Structure
+A valid package in the registry must contain:
+1.  `alias.sh`: The actual shell alias definitions.
+2.  `ah.yaml`: Metadata (Name, Description, Author, Version).
+
+### 3.5. Shell Integration
+*   **Installation:** `ah init` appends a source block to `~/.zshrc` or `~/.bashrc`.
+*   **Hook:** `ah_check_state` (precmd/PROMPT_COMMAND) checks the `state` file timestamp. If changed, it re-sources `env.sh`.
+
+## 4. Distribution
+*   **GitHub Releases:** Binaries built for macOS (AMD64/ARM64) and Linux via GitHub Actions.
+*   **Install Script:** `curl .../install.sh | bash` (fetches release binary).
+*   **Homebrew:** Formula `Formula/ah.rb` supports `brew tap` install.
+*   **Go:** `go install github.com/sarkartanmay393/ah@latest`.
+
+## 5. Security Measures
+*   **Path Traversal Prevention:** `ah install` validates package names.
+*   **Local Binding:** Web UI only listens on localhost.
+*   **Strict Parsing:** Compiler ignores non-alias lines in `alias.sh` (mitigates RCE if `alias.sh` contains malware code, though sourcing it is still a trust operation).

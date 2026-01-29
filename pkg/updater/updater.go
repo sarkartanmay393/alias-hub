@@ -14,7 +14,7 @@ import (
 
 const (
 	RepoOwner = "sarkartanmay393"
-	RepoName  = "alias-hub" // Assuming this is the repo name based on install.sh
+	RepoName  = "ah" // Updated repo name
 )
 
 type Release struct {

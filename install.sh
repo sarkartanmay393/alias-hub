@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO="sarkartanmay393/alias-hub"
+REPO="sarkartanmay393/ah"
 BINARY_NAME="ah"
 INSTALL_DIR="/usr/local/bin"
 

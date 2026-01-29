@@ -22,13 +22,13 @@ Most alias tools are just "dotfile managers" or heavy frameworks like Oh-My-Zsh.
 
 ### 🍺 Homebrew (macOS/Linux)
 ```bash
-brew tap sarkartanmay393/alias-hub https://github.com/sarkartanmay393/alias-hub
+brew tap sarkartanmay393/ah https://github.com/sarkartanmay393/ah
 brew install ah
 ```
 
 ### 🚀 Automatic Install (Linux/Mac)
 ```bash
-curl -sL https://raw.githubusercontent.com/sarkartanmay393/alias-hub/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/sarkartanmay393/ah/main/install.sh | bash
 ```
 
 ### 📦 Go Install (Developers)
