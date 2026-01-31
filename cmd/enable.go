@@ -10,12 +10,14 @@ import (
 var enableCmd = &cobra.Command{
 	Use:   "enable [package]",
 	Short: "Enable an installed alias package",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		packageName := args[0]
-		if err := manager.EnablePackageFromRepo(packageName); err != nil {
-			fmt.Printf("Error enabling package: %v\n", err)
-			return
+		for _, packageName := range args {
+			if err := manager.EnablePackageFromRepo(packageName); err != nil {
+				fmt.Printf("Error enabling package '%s': %v\n", packageName, err)
+			} else {
+				fmt.Printf("Package '%s' enabled.\n", packageName)
+			}
 		}
 	},
 }

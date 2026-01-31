@@ -18,11 +18,11 @@ func InstallPackage(packageName string) error {
 		return fmt.Errorf("failed to update registry: %w", err)
 	}
 
-	return WithLock(func() error {
-		if err := EnsureDirs(); err != nil {
-			return err
-		}
+	if err := EnsureDirs(); err != nil {
+		return err
+	}
 
+	return WithLock(func() error {
 		// 2. Find Package
 		targetDir, err := GetRegistryPackagePath(packageName)
 		if err != nil {
@@ -49,11 +49,8 @@ func InstallPackage(packageName string) error {
 			fmt.Printf("Warning: Failed to check conflicts: %v\n", err)
 		}
 		if len(conflicts) > 0 {
-			fmt.Println("\n[!] CONFLICTS DETECTED:")
-			for alias, pkg := range conflicts {
-				fmt.Printf("  Alias '%s' is already defined in package '%s'\n", alias, pkg)
-			}
-			return fmt.Errorf("installation aborted due to conflicts")
+			// Return typed error for UI handling
+			return &ConflictError{Conflicts: conflicts}
 		}
 
 		// 2.5 Security Preview

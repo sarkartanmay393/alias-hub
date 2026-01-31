@@ -19,6 +19,15 @@ const (
 	RegistryRepo = "https://github.com/sarkartanmay393/ah" // Default
 )
 
+// ConflictError represents a conflict during installation
+type ConflictError struct {
+	Conflicts map[string]string
+}
+
+func (e *ConflictError) Error() string {
+	return fmt.Sprintf("conflicts detected: %d aliases collide", len(e.Conflicts))
+}
+
 func GetRootDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

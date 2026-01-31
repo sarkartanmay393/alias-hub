@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func ListPackages() ([]string, error) {
@@ -23,7 +24,7 @@ func ListPackages() ([]string, error) {
 
 	var packages []string
 	for _, entry := range entries {
-		if entry.IsDir() || (entry.Type()&os.ModeSymlink != 0) {
+		if !strings.HasPrefix(entry.Name(), ".") {
 			packages = append(packages, entry.Name())
 		}
 	}

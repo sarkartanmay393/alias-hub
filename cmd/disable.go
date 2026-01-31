@@ -10,12 +10,14 @@ import (
 var disableCmd = &cobra.Command{
 	Use:   "disable [package]",
 	Short: "Disable an alias package (without removing it)",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		packageName := args[0]
-		if err := manager.DisablePackage(packageName); err != nil {
-			fmt.Printf("Error disabling package: %v\n", err)
-			return
+		for _, packageName := range args {
+			if err := manager.DisablePackage(packageName); err != nil {
+				fmt.Printf("Error disabling package '%s': %v\n", packageName, err)
+			} else {
+				fmt.Printf("Package '%s' disabled.\n", packageName)
+			}
 		}
 	},
 }

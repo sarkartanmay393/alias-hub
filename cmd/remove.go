@@ -10,14 +10,15 @@ import (
 var removeCmd = &cobra.Command{
 	Use:   "remove [package]",
 	Short: "Remove an installed alias package",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		packageName := args[0]
-		if err := manager.RemovePackage(packageName); err != nil {
-			fmt.Printf("Error removing package: %v\n", err)
-			return
+		for _, packageName := range args {
+			if err := manager.RemovePackage(packageName); err != nil {
+				fmt.Printf("Error removing package '%s': %v\n", packageName, err)
+			} else {
+				fmt.Printf("Package '%s' removed.\n", packageName)
+			}
 		}
-		fmt.Printf("Package '%s' removed.\n", packageName)
 	},
 }
 

@@ -36,7 +36,7 @@ function renderList() {
     if (conflicts.length === 0) {
         list.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--success);">All Clear! 🎉</li>';
         document.getElementById('detail-view').style.display = 'none';
-        document.getElementById('empty-state').innerHTML = '<h2>All Conflicts Resolved</h2><button class="btn btn-primary" onclick="fetch(\'/api/shutdown\')">Close & Exit</button>';
+        document.getElementById('empty-state').innerHTML = '<h2>All Conflicts Resolved</h2><button class="btn btn-primary" id="shutdown-btn" style="margin-top: 8px;" onclick="shutdown()">Close & Exit</button>';
         document.getElementById('empty-state').style.display = 'block';
         return;
     }
@@ -114,6 +114,25 @@ function renameAlias() {
     if (newName && newName !== currentConflict.alias) {
         // Send rename action
         resolve('rename:' + newName);
+    }
+}
+
+async function shutdown() {
+    const btn = document.getElementById('shutdown-btn');
+    btn.innerText = 'Closing...';
+    btn.disabled = true;
+
+    try {
+        await fetch('/api/shutdown');
+        document.body.innerHTML = `
+            <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; background: #0d0d12; font-family: sans-serif;">
+                <h1 style="color: #22c55e;">Done!</h1>
+                <p style="color: #a1a1aa;">You can now close this tab.</p>
+            </div>
+        `;
+        window.close();
+    } catch (e) {
+        console.error(e);
     }
 }
 

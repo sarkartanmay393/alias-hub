@@ -1,0 +1,5 @@
+name: "gcloud"
+description: "Google Cloud SDK CLI shortcuts"
+version: "1.0.0"
+author: "Tanmay Sarkar"
+website: "https://cloud.google.com/sdk/gcloud"

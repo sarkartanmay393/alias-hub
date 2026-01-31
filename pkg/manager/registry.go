@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -90,4 +91,28 @@ func GetRegistryPackagePath(packageName string) (string, error) {
 		return "", fmt.Errorf("package '%s' not found in registry", packageName)
 	}
 	return pkgPath, nil
+}
+
+// ListRegistryPackages returns a list of all packages available in the local registry
+func ListRegistryPackages() ([]string, error) {
+	contentDir, err := GetRegistryContentDir()
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(contentDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+
+	var packages []string
+	for _, entry := range entries {
+		if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			packages = append(packages, entry.Name())
+		}
+	}
+	return packages, nil
 }

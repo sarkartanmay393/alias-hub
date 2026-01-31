@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sarkartanmay393/ah/pkg/manager"
@@ -18,6 +19,7 @@ var uninstallCmd = &cobra.Command{
 		fmt.Println("  - All installed alias packages")
 		fmt.Println("  - The registry cache")
 		fmt.Println("  - The entire ~/.ah directory")
+		fmt.Println("  - Shell configuration lines in .zshrc/.bashrc")
 		fmt.Println("")
 		fmt.Print("Are you sure? Type 'DELETE' to confirm: ")
 
@@ -30,6 +32,10 @@ var uninstallCmd = &cobra.Command{
 			return
 		}
 
+		// 1. Remove Config from Shell
+		removeShellConfig()
+
+		// 2. Remove Data Directory
 		root, _ := manager.GetRootDir()
 		fmt.Printf("Removing %s...\n", root)
 		if err := os.RemoveAll(root); err != nil {
@@ -38,8 +44,66 @@ var uninstallCmd = &cobra.Command{
 		}
 
 		fmt.Println("✅ Uninstall complete.")
-		fmt.Println("NOTE: You must manually remove the 'ah init' lines from your .zshrc/.bashrc")
+
+		// 3. Advise on Binary Removal
+		execPath, err := os.Executable()
+		if err == nil && strings.Contains(execPath, "Cellar") {
+			fmt.Println("\n🍺 Homebrew installation detected.")
+			fmt.Println("👉 To strictly remove the binary run: brew uninstall ah")
+		} else {
+			fmt.Println("\nTo remove the binary itself, delete:", execPath)
+		}
 	},
+}
+
+func removeShellConfig() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	shell := os.Getenv("SHELL")
+	var rcFile string
+	if strings.Contains(shell, "zsh") {
+		rcFile = filepath.Join(home, ".zshrc")
+	} else {
+		rcFile = filepath.Join(home, ".bashrc")
+	}
+
+	content, err := os.ReadFile(rcFile)
+	if err != nil {
+		return
+	}
+
+	lines := strings.Split(string(content), "\n")
+	var newLines []string
+	inBlock := false
+
+	for _, line := range lines {
+		// Identify start/end of our block
+		// We use a simple heuristic based on the comments/exports we added
+		if strings.Contains(line, "# Alias Hub") {
+			inBlock = true
+			continue
+		}
+		if inBlock {
+			if strings.Contains(line, "AH_PATH") || strings.Contains(line, "env.sh") || strings.TrimSpace(line) == "" {
+				continue
+			}
+			// If we hit a line that doesn't look like ours, assume block ended
+			// But our block is contiguous.
+			// Ideally precise matching is better, but this works for the standard init script.
+			inBlock = false
+		}
+		newLines = append(newLines, line)
+	}
+
+	// Write back
+	if len(lines) != len(newLines) {
+		if err := os.WriteFile(rcFile, []byte(strings.Join(newLines, "\n")), 0644); err == nil {
+			fmt.Printf("Cleaned configuration from %s\n", rcFile)
+		}
+	}
 }
 
 func init() {

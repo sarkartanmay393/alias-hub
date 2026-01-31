@@ -1,15 +1,16 @@
 package server
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/sarkartanmay393/ah/pkg/manager"
 	"github.com/sarkartanmay393/ah/pkg/parser"
@@ -63,28 +64,39 @@ func Start(newPkgName string) error {
 	}
 
 	// 2. Setup Server
-	// We need to serve the "web" folder.
-	// For now, let's assume assets are in a subfolder "web" relative to this binary execution or embedded.
-	// Since I can't move files easily with `embed` restrictions in this chat mode without multiple steps,
-	// I'll assume they will be moved.
+	server := &http.Server{Addr: "127.0.0.1:9999"}
+
+	shutdownChan := make(chan struct{})
 
 	http.Handle("/", http.FileServer(http.FS(getWebFS())))
 	http.HandleFunc("/api/conflicts", handleConflicts)
+	http.HandleFunc("/api/resolve", handleResolve) // Ensure this is registered
 	http.HandleFunc("/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		go func() {
-			fmt.Println("Shutting down...")
-			os.Exit(0)
-		}()
+		close(shutdownChan)
 	})
 
-	port := "9999"
-	url := "http://localhost:" + port
+	url := "http://localhost:9999"
 	fmt.Printf("⚠️  Conflict Resolution UI started at %s\n", url)
 	openBrowser(url)
 
-	// Security: Only bind to localhost to prevent network access
-	return http.ListenAndServe("127.0.0.1:"+port, nil)
+	// Run server in goroutine
+	go func() {
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			fmt.Printf("Error running server: %v\n", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-shutdownChan
+	fmt.Println("\nShutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("server shutdown failed: %w", err)
+	}
+	return nil
 }
 
 func handleConflicts(w http.ResponseWriter, r *http.Request) {
@@ -136,29 +148,24 @@ func handleResolve(w http.ResponseWriter, r *http.Request) {
 }
 
 func calculateConflicts(pkgName string) ([]Conflict, error) {
-	// Logic to actually parse active packages vs new package
-	// Re-using manager.CheckConflicts logic but constructing detailed objects
-	// For this demo/first-pass, I'll return dummy data if pkgName is "demo",
-	// or try to run real check.
-
 	registryPath, err := manager.GetRegistryPackagePath(pkgName)
 	if err != nil {
 		return nil, err
 	}
 
+	// 1. Get raw conflict map (Alias -> ExistingPkgName)
 	rawConflicts, err := manager.CheckConflicts(registryPath)
 	if err != nil {
 		return nil, err
 	}
 
 	var list []Conflict
+
+	// 2. Parse New Package Aliases to get commands
 	newAliases, _ := parser.ParseAliases(filepath.Join(registryPath, "alias.sh"))
 
-	// We need to find WHAT the existing alias command is.
-	// manager.CheckConflicts only returns "pkgName".
-	// We need to scan again.
-
-	for alias, existingPkg := range rawConflicts {
+	// 3. Build detailed conflict objects
+	for alias, existingPkgName := range rawConflicts {
 		// Find New Command
 		var newCmd string
 		for _, a := range newAliases {
@@ -170,7 +177,7 @@ func calculateConflicts(pkgName string) ([]Conflict, error) {
 
 		// Find Existing Command
 		root, _ := manager.GetRootDir()
-		existingPath := filepath.Join(root, "active", existingPkg, "alias.sh")
+		existingPath := filepath.Join(root, manager.ActiveDir, existingPkgName, "alias.sh")
 		existParams, _ := parser.ParseAliases(existingPath)
 		var existCmd string
 		for _, a := range existParams {
@@ -182,7 +189,7 @@ func calculateConflicts(pkgName string) ([]Conflict, error) {
 
 		list = append(list, Conflict{
 			Alias:    alias,
-			Existing: PkgInfo{Package: existingPkg, Command: existCmd},
+			Existing: PkgInfo{Package: existingPkgName, Command: existCmd},
 			New:      PkgInfo{Package: pkgName, Command: newCmd},
 		})
 	}
@@ -191,14 +198,13 @@ func calculateConflicts(pkgName string) ([]Conflict, error) {
 }
 
 func getWebFS() fs.FS {
-	// Hack: To make it work in this environment without moving files yet
-	// In production this would return the embedded FS
+	// Use embedded FS for production
 	f, err := fs.Sub(webFS, "web_dist")
 	if err == nil {
 		return f
 	}
-	// Fallback to local dir
-	return os.DirFS("web")
+	// Fallback during dev if embed fails (shouldn't happen with correct build)
+	return webFS
 }
 
 func openBrowser(url string) {

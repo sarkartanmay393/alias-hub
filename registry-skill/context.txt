@@ -1,0 +1,70 @@
+# Alias Hub (ah) Package Structure Context
+
+This document describes the structure and requirements for creating an alias package for "Alias Hub" (ah).
+
+## Overview
+An `ah` package consists of two required files residing in a directory named after the package:
+1. `ah.yaml`: Metadata file.
+2. `alias.sh`: Shell script containing the aliases.
+
+## 1. ah.yaml (Metadata)
+This file is used by `ah` to identify, list, self-update and manage the package.
+
+### Schema
+```yaml
+name: "tool-name"         # [Required] Lowercase, no spaces (e.g., kubectl, git, gcloud)
+description: "Brief info" # [Required] Short description of what the aliases do (max 80 chars recommended)
+version: "1.0.0"          # [Required] Semantic versioning (e.g., 1.0.0)
+author: "Your Name"       # [Optional] Name of the maintainer
+website: "URL"            # [Optional] URL to the tool's documentation or repo
+```
+
+### Example (clawdbot/ah.yaml)
+```yaml
+name: "clawdbot"
+description: "CLAWDBOT CLI shortcuts for managing gateways and configurations."
+version: "1.0.0"
+author: "Tanmay Sarkar"
+website: "https://docs.molt.bot/"
+```
+
+## 2. alias.sh (Aliases)
+This file contains the actual shell alias definitions. It is sourced by `ah` when the package is enabled.
+
+### Rules
+- Use standard POSIX `alias` syntax: `alias name='command'`.
+- Do NOT include shebangs (`#!/bin/bash`).
+- Do NOT define functions (unless absolutely necessary, but preferred is aliases).
+- Group related aliases logically.
+- Add comments explaining complex aliases.
+
+### Naming Conventions
+- Aliases should be short but memorable.
+- Use a common prefix for the tool (e.g., `k` for `kubectl`, `g` for `git`).
+- Example hierarchy:
+  - `cb` -> `clawdbot`
+  - `cbg` -> `clawdbot gateway`
+  - `cbgs` -> `clawdbot gateway start`
+
+### Example (clawdbot/alias.sh)
+```bash
+# Core
+alias cb='clawdbot'
+
+# Gateway Management
+alias cbg='clawdbot gateway'
+alias cbgs='clawdbot gateway start'
+alias cbge='clawdbot gateway stop'
+alias cbgst='clawdbot gateway status'
+
+# Config Management
+alias cbc='clawdbot config'
+alias cbcs='clawdbot config set'
+alias cbcu='clawdbot config unset'
+```
+
+## Generation Goal
+When asked to generate a package for a tool (e.g. "Google Cloud CLI"):
+1. Identify the common CLI command (e.g. `gcloud`).
+2. Create a sensible `ah.yaml`.
+3. Create a comprehensive `alias.sh` with shortcuts for common commands.
