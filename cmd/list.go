@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/sarkartanmay393/ah/pkg/manager"
 	"github.com/spf13/cobra"
@@ -61,7 +63,14 @@ var listCmd = &cobra.Command{
 
 		root, _ := manager.GetRootDir()
 
+		// Sort packages for consistent output
+		var sortedPkgs []string
 		for pkg := range allMap {
+			sortedPkgs = append(sortedPkgs, pkg)
+		}
+		sort.Strings(sortedPkgs)
+
+		for _, pkg := range sortedPkgs {
 			status := "[Available]"
 			if activeMap[pkg] {
 				status = "[Enabled]"
@@ -93,11 +102,7 @@ var listCmd = &cobra.Command{
 }
 
 func algoLine(n int) string {
-	s := ""
-	for i := 0; i < n; i++ {
-		s += "-"
-	}
-	return s
+	return strings.Repeat("-", n)
 }
 
 func init() {

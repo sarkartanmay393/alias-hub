@@ -31,6 +31,8 @@ func ListPackages() ([]string, error) {
 	return packages, nil
 }
 
+// RemovePackage removes a package from the active directory.
+// Returns an error if the package is not currently enabled.
 func RemovePackage(packageName string) error {
 	return WithLock(func() error {
 		root, err := GetRootDir()
@@ -38,16 +40,18 @@ func RemovePackage(packageName string) error {
 			return err
 		}
 
-		// 1. Remove Symlink
+		// 1. Check if package exists before removal
 		symlinkPath := filepath.Join(root, ActiveDir, packageName)
-		if err := os.Remove(symlinkPath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to remove active alias: %w", err)
+		if _, err := os.Lstat(symlinkPath); os.IsNotExist(err) {
+			return fmt.Errorf("package '%s' is not installed", packageName)
 		}
 
-		// 2. Remove Source Repo
-		// In Registry architecture, "Remove" only disables the package.
-		// We process the removal from 'active' symlinks.
-		// Logic to delete file from registry is permanently removed.
+		// 2. Remove Symlink
+		if err := os.Remove(symlinkPath); err != nil {
+			return fmt.Errorf("failed to remove package: %w", err)
+		}
+
+		// 3. Recompile aliases
 		if err := CompileAliases(); err != nil {
 			fmt.Printf("Warning: Failed to compile aliases: %v\n", err)
 		}

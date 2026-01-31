@@ -80,25 +80,34 @@ func removeShellConfig() {
 	inBlock := false
 
 	for _, line := range lines {
-		// Identify start/end of our block
-		// We use a simple heuristic based on the comments/exports we added
-		if strings.Contains(line, "# Alias Hub") {
+		// Check for block start marker (new style)
+		if strings.Contains(line, "# >>> Alias Hub >>>") {
+			inBlock = true
+			continue
+		}
+		// Check for block end marker (new style)
+		if strings.Contains(line, "# <<< Alias Hub <<<") {
+			inBlock = false
+			continue
+		}
+		// Legacy support: old style marker
+		if strings.Contains(line, "# Alias Hub") && !inBlock {
+			// Start of legacy block - skip until we find a non-matching line
 			inBlock = true
 			continue
 		}
 		if inBlock {
-			if strings.Contains(line, "AH_PATH") || strings.Contains(line, "env.sh") || strings.TrimSpace(line) == "" {
-				continue
+			// For legacy blocks, exit when we hit a line that's not part of our config
+			if !strings.Contains(line, "AH_PATH") && !strings.Contains(line, "env.sh") && strings.TrimSpace(line) != "" {
+				inBlock = false
+				newLines = append(newLines, line)
 			}
-			// If we hit a line that doesn't look like ours, assume block ended
-			// But our block is contiguous.
-			// Ideally precise matching is better, but this works for the standard init script.
-			inBlock = false
+			continue
 		}
 		newLines = append(newLines, line)
 	}
 
-	// Write back
+	// Write back only if changes were made
 	if len(lines) != len(newLines) {
 		if err := os.WriteFile(rcFile, []byte(strings.Join(newLines, "\n")), 0644); err == nil {
 			fmt.Printf("Cleaned configuration from %s\n", rcFile)

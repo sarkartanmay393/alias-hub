@@ -34,10 +34,21 @@ func DisablePackage(packageName string) error {
 	})
 }
 
-// EnablePackageFromRepo links an already installed package
+// EnablePackageFromRepo enables an already installed package from the registry.
+// Returns an error if the package is already enabled or not installed.
 func EnablePackageFromRepo(packageName string) error {
-	// Re-use existing logic, but verify repo exists first
+	root, err := GetRootDir()
+	if err != nil {
+		return err
+	}
 
+	// Check if already enabled
+	symlinkPath := filepath.Join(root, ActiveDir, packageName)
+	if _, err := os.Lstat(symlinkPath); err == nil {
+		return fmt.Errorf("package '%s' is already enabled", packageName)
+	}
+
+	// Verify package exists in registry
 	contentDir, err := GetRegistryContentDir()
 	if err != nil {
 		return err

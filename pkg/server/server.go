@@ -1,3 +1,6 @@
+// Package server provides a web-based conflict resolution UI for ah.
+// When alias conflicts are detected during installation, this server
+// launches a local web interface to help users resolve them interactively.
 package server
 
 import (
@@ -19,28 +22,20 @@ import (
 //go:embed web_dist/*
 var webFS embed.FS
 
-// NOTE: Since I cannot easily structure the previously created `web/` folder to match `embed`,
-// I will assume the build process or I just point `webFS` to `../../web`.
-// Actually, `embed` directives are relative to the file.
-// If I put this file in `pkg/server`, and assets are in `root/web`.
-// Go generic embed doesn't support '..'.
-// Optimization: I should move `web` contents to `pkg/server/web` OR
-// I will move `web/` to `pkg/server/web_dist` during the "Build" phase?
-// EASIER: I'll create `pkg/server/web_assets.go` and COPY the web content there OR
-// Just move the `web` folder inside `pkg/server`.
-// I'll stick to: Move `web` to `pkg/server/web` in the next step.
-
+// Conflict represents an alias name collision between packages.
 type Conflict struct {
 	Alias    string  `json:"alias"`
 	Existing PkgInfo `json:"existing"`
 	New      PkgInfo `json:"new"`
 }
 
+// PkgInfo contains package details for conflict display.
 type PkgInfo struct {
 	Package string `json:"package"`
 	Command string `json:"command"`
 }
 
+// ResolveRequest is the API request for resolving a single conflict.
 type ResolveRequest struct {
 	Alias         string `json:"alias"`
 	Action        string `json:"action"` // "keep_existing", "replace", "rename:<new_name>"
@@ -49,7 +44,8 @@ type ResolveRequest struct {
 
 var currentConflicts []Conflict
 
-// Start launches the conflict resolution server
+// Start launches the conflict resolution web server on port 9999.
+// It opens the user's browser and blocks until the user closes the UI.
 func Start(newPkgName string) error {
 	// 1. Calculate Conflicts
 	var err error
@@ -63,15 +59,16 @@ func Start(newPkgName string) error {
 		return nil
 	}
 
-	// 2. Setup Server
-	server := &http.Server{Addr: "127.0.0.1:9999"}
+	// 2. Setup Server with dedicated mux (avoids handler accumulation)
+	mux := http.NewServeMux()
+	server := &http.Server{Addr: "127.0.0.1:9999", Handler: mux}
 
 	shutdownChan := make(chan struct{})
 
-	http.Handle("/", http.FileServer(http.FS(getWebFS())))
-	http.HandleFunc("/api/conflicts", handleConflicts)
-	http.HandleFunc("/api/resolve", handleResolve) // Ensure this is registered
-	http.HandleFunc("/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", http.FileServer(http.FS(getWebFS())))
+	mux.HandleFunc("/api/conflicts", handleConflicts)
+	mux.HandleFunc("/api/resolve", handleResolve)
+	mux.HandleFunc("/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		close(shutdownChan)
 	})
@@ -101,7 +98,9 @@ func Start(newPkgName string) error {
 
 func handleConflicts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(currentConflicts)
+	if err := json.NewEncoder(w).Encode(currentConflicts); err != nil {
+		http.Error(w, "Failed to encode conflicts", http.StatusInternalServerError)
+	}
 }
 
 func handleResolve(w http.ResponseWriter, r *http.Request) {

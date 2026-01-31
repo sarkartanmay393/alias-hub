@@ -12,16 +12,25 @@ var updateCmd = &cobra.Command{
 	Short: "Update the package registry and re-compile aliases",
 	Long:  `Downloads the latest package definitions from the registry and re-generates your alias configurations.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Updating registry...")
-		if err := manager.UpdateRegistry(); err != nil {
-			// UpdateRegistry handles its own warnings/errors mostly, but if hard fail:
-			fmt.Printf("Error updating registry: %v\n", err)
+		if err := manager.EnsureDirs(); err != nil {
+			fmt.Printf("Error ensuring directories: %v\n", err)
 			return
 		}
 
-		fmt.Println("Compiling aliases...")
-		if err := manager.CompileAliases(); err != nil {
-			fmt.Printf("Error compiling aliases: %v\n", err)
+		// Use WithLock for thread-safe registry update and compile
+		if err := manager.WithLock(func() error {
+			fmt.Println("Updating registry...")
+			if err := manager.UpdateRegistry(); err != nil {
+				return fmt.Errorf("registry update failed: %w", err)
+			}
+
+			fmt.Println("Compiling aliases...")
+			if err := manager.CompileAliases(); err != nil {
+				return fmt.Errorf("compile failed: %w", err)
+			}
+			return nil
+		}); err != nil {
+			fmt.Printf("Error: %v\n", err)
 			return
 		}
 

@@ -1,3 +1,5 @@
+// Package parser provides utilities for parsing shell alias definition files.
+// It extracts alias definitions from shell scripts while ignoring other code.
 package parser
 
 import (
@@ -6,14 +8,19 @@ import (
 	"strings"
 )
 
+// AliasDef represents a single shell alias definition.
 type AliasDef struct {
-	Name    string
+	// Name is the alias name (e.g., "ll" in "alias ll='ls -la'").
+	Name string
+	// Command is the aliased command (e.g., "ls -la").
 	Command string
-	Source  string
+	// Source is the file path where this alias was defined.
+	Source string
 }
 
-// ParseAliases strictly extracts "alias key=value" lines.
-// It ignores everything else (comments, functions, logic).
+// ParseAliases extracts alias definitions from a shell script file.
+// It strictly parses "alias name='command'" or 'alias name="command"' lines,
+// ignoring comments, functions, and other shell constructs.
 func ParseAliases(filePath string) ([]AliasDef, error) {
 	file, err := os.Open(filePath)
 	if err != nil {

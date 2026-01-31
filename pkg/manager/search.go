@@ -12,48 +12,58 @@ type ValidPackage struct {
 }
 
 func SearchPackages(query string) ([]ValidPackage, error) {
-	// Auto-update registry ensures we search fresh data
-	if err := UpdateRegistry(); err != nil {
-		return nil, err
-	}
-
-	// ~/.ah/registry/registry
-	baseDir, err := GetRegistryContentDir()
-	if err != nil {
+	// Ensure directories exist first
+	if err := EnsureDirs(); err != nil {
 		return nil, err
 	}
 
 	var matches []ValidPackage
 
-	entries, err := os.ReadDir(baseDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []ValidPackage{}, nil
-		}
-		return nil, err
-	}
-
-	query = strings.ToLower(query)
-
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+	// Use lock for thread-safe registry access
+	err := WithLock(func() error {
+		// Auto-update registry ensures we search fresh data
+		if err := UpdateRegistry(); err != nil {
+			return err
 		}
 
-		// Load Metadata
-		pkgPath := filepath.Join(baseDir, e.Name())
-		meta, err := LoadMetadata(pkgPath)
+		// ~/.ah/registry/registry
+		baseDir, err := GetRegistryContentDir()
 		if err != nil {
-			// Skip invalid packages (missing ah.yaml or too large)
-			continue
+			return err
 		}
 
-		nameMatch := strings.Contains(strings.ToLower(e.Name()), query)
-		descMatch := strings.Contains(strings.ToLower(meta.Description), query)
-
-		if nameMatch || descMatch {
-			matches = append(matches, ValidPackage{Name: e.Name(), Description: meta.Description})
+		entries, err := os.ReadDir(baseDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
 		}
-	}
-	return matches, nil
+
+		queryLower := strings.ToLower(query)
+
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+
+			// Load Metadata
+			pkgPath := filepath.Join(baseDir, e.Name())
+			meta, err := LoadMetadata(pkgPath)
+			if err != nil {
+				// Skip invalid packages (missing ah.yaml or too large)
+				continue
+			}
+
+			nameMatch := strings.Contains(strings.ToLower(e.Name()), queryLower)
+			descMatch := strings.Contains(strings.ToLower(meta.Description), queryLower)
+
+			if nameMatch || descMatch {
+				matches = append(matches, ValidPackage{Name: e.Name(), Description: meta.Description})
+			}
+		}
+		return nil
+	})
+
+	return matches, err
 }

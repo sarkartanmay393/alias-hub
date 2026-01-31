@@ -10,11 +10,12 @@ import (
 	"time"
 )
 
-const (
-	RegistryDir = "registry"
-)
+// RegistryDir is the subdirectory name where the package registry is cloned.
+const RegistryDir = "registry"
 
-// UpdateRegistry ensures the registry is cloned and up to date
+// UpdateRegistry ensures the package registry is cloned and up to date.
+// It uses AH_REGISTRY_URL environment variable if set, otherwise defaults
+// to the official repository. Operations timeout after 30 seconds.
 func UpdateRegistry() error {
 	repoURL := os.Getenv("AH_REGISTRY_URL")
 	if repoURL == "" {
@@ -53,6 +54,7 @@ func UpdateRegistry() error {
 	// Pull
 	fmt.Println("Updating registry...")
 	cmd := exec.CommandContext(ctx, "git", "-C", registryPath, "pull")
+	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	// Prevent interactive prompts

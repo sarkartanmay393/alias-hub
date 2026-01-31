@@ -1,6 +1,13 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/sarkartanmay393/ah/pkg/manager"
+	"github.com/sarkartanmay393/ah/pkg/updater"
 	"github.com/sarkartanmay393/ah/pkg/version"
 	"github.com/spf13/cobra"
 )
@@ -12,20 +19,7 @@ var rootCmd = &cobra.Command{
 It features conflict detection, live updates, and a public registry.`,
 	Version: version.Version,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// Non-blocking check for updates?
-		// Or maybe blocking but short timeout?
-		// Let's do a simple background check or skip for now to avoid latency on every command.
-		// A common pattern is to check once a day.
-		// For now, let's just make it NOT run on every command to avoid lag,
-		// or maybe only if a flag is passed?
-		// Actually, the request was "update notification".
-		// Let's just do a quick check in a goroutine so it doesn't block,
-		// but print at the End? No, cobra Run finishes.
-
-		// Let's rely on explicit 'ah self-update' or 'ah update' for now
-		// OR implementing a state file to check once every 24h.
-
-		// Implementing a simple file-based debounce.
+		// Background check for updates (non-blocking, with 24h debounce)
 		go checkForUpdates()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -33,22 +27,37 @@ It features conflict detection, live updates, and a public registry.`,
 	},
 }
 
+const updateCheckInterval = 24 * time.Hour
+
 func checkForUpdates() {
-	// TODO: Store last check time in a file to avoid spamming GitHub API
-	// For now, silently return or simple check
-	// If we print to stdout/stderr it might mess up output of commands like 'ah list'.
-	// So better to only print if it's a dedicated command or at the very end.
+	// Get the check timestamp file path
+	root, err := manager.GetRootDir()
+	if err != nil {
+		return
+	}
 
-	// Since we can't easily print 'after' the command execution without wrapping everything,
-	// let's stick to 'ah self-update' for the actual action, and maybe 'ah doctor' or 'ah update' shows it.
+	checkFile := filepath.Join(root, "last_update_check")
 
-	// For this task, I will leave the strict notification out of the hot-path
-	// unless requested, but the plan said "Update notifications".
-	// Implementation Plan said "Store last check timestamp... If update available, print notice to Stderr".
+	// Check if we should skip (checked within last 24 hours)
+	if info, err := os.Stat(checkFile); err == nil {
+		if time.Since(info.ModTime()) < updateCheckInterval {
+			return // Skip - checked recently
+		}
+	}
 
-	// Since I didn't implement the state persistence for timestamp yet, I will skip the auto-check
-	// to prevent API rate limiting and lag.
-	// Users can run 'ah self-update' to check.
+	// Update the check timestamp
+	os.WriteFile(checkFile, []byte(time.Now().Format(time.RFC3339)), 0644)
+
+	// Check for updates
+	latestVersion, err := updater.CheckForUpdates()
+	if err != nil {
+		return // Silently fail
+	}
+
+	if latestVersion != "" {
+		fmt.Fprintf(os.Stderr, "\n📦 Update available: v%s → v%s\n", version.Version, latestVersion)
+		fmt.Fprintln(os.Stderr, "   Run 'ah self-update' to upgrade.")
+	}
 }
 
 func Execute() error {

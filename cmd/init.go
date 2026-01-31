@@ -21,9 +21,10 @@ var initCmd = &cobra.Command{
 
 		root, _ := manager.GetRootDir()
 		configScript := fmt.Sprintf(`
-# Alias Hub
+# >>> Alias Hub >>>
 export AH_PATH="%s"
 [ -f "$AH_PATH/env.sh" ] && source "$AH_PATH/env.sh"
+# <<< Alias Hub <<<
 `, root)
 
 		// Auto-Install Logic

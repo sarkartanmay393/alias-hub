@@ -1,3 +1,6 @@
+// Package manager provides core functionality for managing alias packages.
+// It handles package installation, enabling/disabling, registry synchronization,
+// and alias compilation for the ah CLI tool.
 package manager
 
 import (
@@ -10,17 +13,26 @@ import (
 	"github.com/sarkartanmay393/ah/pkg/parser"
 )
 
+// Directory and file name constants for the ah data directory (~/.ah).
 const (
-	RootDirName  = ".ah"
-	ActiveDir    = "active"
-	BinDir       = "bin"
-	StateFile    = "state"
-	EnvFile      = "env.sh"
-	RegistryRepo = "https://github.com/sarkartanmay393/ah" // Default
+	// RootDirName is the name of the ah data directory in the user's home.
+	RootDirName = ".ah"
+	// ActiveDir stores symlinks to enabled packages.
+	ActiveDir = "active"
+	// BinDir stores executable scripts (reserved for future use).
+	BinDir = "bin"
+	// StateFile tracks the last modification time for live reload.
+	StateFile = "state"
+	// EnvFile is the shell script sourced by the user's shell.
+	EnvFile = "env.sh"
+	// RegistryRepo is the default Git repository URL for the package registry.
+	RegistryRepo = "https://github.com/sarkartanmay393/ah"
 )
 
-// ConflictError represents a conflict during installation
+// ConflictError is returned when installing a package would create
+// alias name collisions with already-enabled packages.
 type ConflictError struct {
+	// Conflicts maps alias names to the package that already defines them.
 	Conflicts map[string]string
 }
 
@@ -28,14 +40,16 @@ func (e *ConflictError) Error() string {
 	return fmt.Sprintf("conflicts detected: %d aliases collide", len(e.Conflicts))
 }
 
+// GetRootDir returns the absolute path to the ah data directory (~/.ah).
 func GetRootDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 	return filepath.Join(home, RootDirName), nil
 }
 
+// EnsureDirs creates the required directory structure and generates env.sh.
 func EnsureDirs() error {
 	root, err := GetRootDir()
 	if err != nil {
